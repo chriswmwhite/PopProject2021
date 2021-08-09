@@ -13,6 +13,10 @@ variableInCategory = str(sys.argv[3]) #takes the variable name that you're searc
 
 averageOrCount = str(sys.argv[4]) #takes "average" or "count"
 
+#So, syntax for this would be something like python3 searchPopCSVs.py 14 12 't' 'average'
+# that would search column 14 (the list of absolute differences) and average only those values where column 12 (first letters) is 't'
+
+
 
 # change this to where your CSVs live
 path = "/Users/cadmin/documents/PopAnnotation2021/CSV_2021/"
