@@ -1,0 +1,137 @@
+import csv
+import glob
+import sys
+import os
+import copy
+import numpy
+from scipy.stats import sem
+
+
+parameterYoureAveraging = int(sys.argv[1]) #takes the number of the column you're averaging
+categoryOfVariable = int(sys.argv[2]) #takes the number of the columns you're using to constrain the averaging
+variableInCategory = str(sys.argv[3]) #takes the variable name that you're searching for to constrain the averaging
+
+averageOrCount = str(sys.argv[4]) #takes "average" or "count"
+
+
+# change this to where your CSVs live
+path = "/Users/cadmin/documents/PopAnnotation2021/CSV_2021/"
+metaDataPath = "/Users/cadmin/documents/PopAnnotation2021/SongsDone2021.csv"
+metaCSV = csv.reader(open(metaDataPath))
+next(metaCSV)
+SongsDate = {}
+SongsBPM = {}
+SongsArtist = {}
+
+BigOlDictionary = {}
+#Dictionary of list of lists, indexed by songName
+#inside = [listOfSyllables 0, listOfMetricAbs 1, listOfMicroAbs 2, listOfMetricLengths 3, listOfMicroLengths 4,
+# listOfMetricMeasures 5, listOfBeatStrengths 6, listOfAccents 7, listOfZones 8, listOfyear 9, listOfBPM 10, Densities 11, 
+#listOfFirstLetters 12, listOfMetricMinusMicro 13, listOfAbsDifference 14
+
+
+for row in metaCSV:
+	songFilename = row[2]
+	artist = row[3]
+	year = row[4]
+	BPM = row[5]
+	SongsDate[songFilename] = year
+	SongsBPM[songFilename] = BPM
+	SongsArtist[songFilename]=artist
+
+for filename in glob.glob(os.path.join(path, '*.csv')):
+	thisCSV = csv.reader(open(filename, 'r', errors = 'ignore', encoding='utf-8'))
+	songName = filename.split('.')[0].split(path)[1]
+	next(thisCSV)
+	BigOlDictionary[songName] = []
+	listOfSyllables, listOfMetricAbs, listOfMicroAbs, listOfMetricLengths, listOfMicroLengths, listOfMetricMeasures, listOfBeatStrengths, listOfAccents, listOfZones, listOfyear,listOfBPM  = ([] for i in range(11))
+	inside = [listOfSyllables, listOfMetricAbs, listOfMicroAbs, listOfMetricLengths, listOfMicroLengths, listOfMetricMeasures, listOfBeatStrengths, listOfAccents, listOfZones, listOfyear, listOfBPM]
+	date = SongsDate[songName]
+	BPM = SongsBPM[songName]
+	for row in thisCSV:
+		for i in range(0, len(row)):
+			thisColumn = inside[i]
+			thisColumn.append(row[i])
+		listOfyear.append(date)
+		listOfBPM.append(BPM)
+	BigOlDictionary[songName] = copy.deepcopy(inside)
+
+###############################################################################################
+############### ADD A COLUMN OF DENSITY PER MEASURE ###########################
+for songX in BigOlDictionary:
+	listOfMetricMeasures1 = BigOlDictionary[songX][5]
+	#print(listOfMetricMeasures1)
+	dictOfDensityInThisSong = {}
+	for num in listOfMetricMeasures1:
+		measure1 = int(str(num).split('.')[0])
+		if measure1 not in dictOfDensityInThisSong:
+			dictOfDensityInThisSong[measure1] = 1
+		else:
+			dictOfDensityInThisSong[measure1] += 1
+	
+	listOfDensities = []
+	previousMeasureD = ''
+	for d in range(len(listOfMetricMeasures1)):
+		measureD = int(str(listOfMetricMeasures1[d]).split('.')[0])
+		if d == 0:
+			listOfDensities.append(dictOfDensityInThisSong[measureD])
+			previousMeasureD = measureD
+			continue
+		if previousMeasureD != measureD:
+			listOfDensities.append(dictOfDensityInThisSong[measureD])
+		else:
+			listOfDensities.append('')
+		previousMeasureD = measureD
+	BigOlDictionary[songX].append(listOfDensities)
+
+
+###############################################################################################
+########## ADD A COLUMN FOR LETTERS AND DIFFS BETWEEN METRIC AND MICRO #########################
+
+for songX in BigOlDictionary:
+	syllables = BigOlDictionary[songX][0]
+	metricAbs = BigOlDictionary[songX][1]
+	microAbs = BigOlDictionary[songX][2]
+	
+	listOfFirstLetters = []
+	listOfMetricMinusMicro = []
+	listOfAbsDifference = []
+	
+	for l in range(len(syllables)):
+		firstLetter = syllables[0].lower() #makes it lowercase
+		differenceBetween = float(metricAbs[l]) - float(microAbs[l])
+		absoluteDifference = abs(differenceBetween)
+		
+		listOfFirstLetters.append(firstLetter)
+		listOfMetricMinusMicro.append(differenceBetween)
+		listOfAbsDifference.append(absoluteDifference)
+
+	BigOlDictionary[songX].append(listOfFirstLetters)
+	BigOlDictionary[songX].append(listOfMetricMinusMicro)
+	BigOlDictionary[songX].append(listOfAbsDifference)
+	
+
+###############################################################################################
+
+
+listToAverage = []
+for song1 in BigOlDictionary:
+	for n in range(len(BigOlDictionary[song1][0])): #zero will work cause they're all the same length
+		possibleValue = BigOlDictionary[song1][parameterYoureAveraging][n]
+		if possibleValue == '': continue #This is a kluge for the density column, which has a bunch of nulls
+		if len(variableInCategory) > 1:
+			if variableInCategory[1:] in BigOlDictionary[song1][categoryOfVariable][n]: #gets away from capitalization
+				listToAverage.append(float(possibleValue))
+		if len(variableInCategory) == 1: #this the special case for looking at single letters 
+			if variableInCategory.lower() in BigOlDictionary[song1][categoryOfVariable][n]: 
+				listToAverage.append(float(possibleValue))
+
+
+
+print('\n', "the", averageOrCount, "of column", parameterYoureAveraging, "that has the variable", variableInCategory, "in column", categoryOfVariable, 'is...')
+if averageOrCount == "average":
+	print(numpy.mean(listToAverage))
+	print('count is', len(listToAverage))
+	print("95% confidence interval is", sem(listToAverage)*1.96, '\n')
+if averageOrCount == "count":
+	print(len(listToAverage))
