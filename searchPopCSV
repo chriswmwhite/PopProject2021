@@ -12,16 +12,20 @@ from scipy.stats import sem
 parameterYoureAveraging = int(sys.argv[1]) #takes the number of the column you're averaging
 categoryOfVariable = int(sys.argv[2]) #takes the number of the columns you're using to constrain the averaging
 variableInCategory = str(sys.argv[3]) #takes the variable name that you're searching for to constrain the averaging
-
 averageOrCount = str(sys.argv[4]) #takes "average" or "count"
 
+# PUT 100 for these if you're not going to use them
+secondaryCategory = int(sys.argv[5]) #takes the number of the columns you're using to constrain the averaging
+secondaryVariableInCategory = str(sys.argv[6]) #takes the variable name that you're searching for to constrain the averaging
 
-#So, syntax for this would be something like python3 searchPopCSVs.py 14 12 't' 'average'
+
+
+#So, syntax for this would be something like python3 searchPopCSVs.py 14 12 't' 'average', 100, 100
 # that would search column 14 (the list of absolute differences) and average only those values where column 12 (first letters) is 't'
 
 
 # change this to the folder where your CSVs live
-path = "/Users/cadmin/documents/PopAnnotation2021/CSV_2021/"
+path = "/Users/cadmin/documents/PopAnnotation2021/CSV_All/"
 # change to where your SongsDone2021 csv lives
 metaDataPath = "/Users/cadmin/documents/PopAnnotation2021/SongsDone2021.csv"
 metaCSV = csv.reader(open(metaDataPath))
@@ -34,7 +38,7 @@ BigOlDictionary = {}
 #Dictionary of list of lists, indexed by songName
 #inside = [listOfSyllables 0, listOfMetricAbs 1, listOfMicroAbs 2, listOfMetricLengths 3, listOfMicroLengths 4,
 # listOfMetricMeasures 5, listOfBeatStrengths 6, listOfAccents 7, listOfZones 8, listOfyear 9, listOfBPM 10, Densities 11, 
-#listOfFirstLetters 12, listOfMetricMinusMicro 13, listOfAbsDifference 14
+#listOfFirstLetters 12, listOfMetricMinusMicro 13, listOfAbsDifference 14, prepost2010 (pre2010/post2009) 15, 
 
 
 for row in metaCSV:
@@ -70,6 +74,7 @@ for songX in BigOlDictionary:
 	#print(listOfMetricMeasures1)
 	dictOfDensityInThisSong = {}
 	for num in listOfMetricMeasures1:
+		#print(songX, num)
 		measure1 = int(str(num).split('.')[0])
 		if measure1 not in dictOfDensityInThisSong:
 			dictOfDensityInThisSong[measure1] = 1
@@ -119,6 +124,28 @@ for songX in BigOlDictionary:
 	
 
 ###############################################################################################
+###############################################################################################
+########## ADD A COLUMN FOR Pre or post Millenial  #########################
+
+for songX in BigOlDictionary:
+	years1 = BigOlDictionary[songX][9]
+	#print(years1)
+	listOfPrePost = []
+	
+	for y in range(len(years1)):
+		year1 = years1[y]
+		if int(year1) > 2010:
+			listOfPrePost.append('post2009')
+			#print('POST')
+		else:
+			listOfPrePost.append('pre2010')
+		
+
+	BigOlDictionary[songX].append(listOfPrePost)
+	
+
+###############################################################################################
+
 
 
 listToAverage = []
@@ -126,13 +153,22 @@ for song1 in BigOlDictionary:
 	for n in range(len(BigOlDictionary[song1][0])): #zero will work cause they're all the same length
 		possibleValue = BigOlDictionary[song1][parameterYoureAveraging][n]
 		if possibleValue == '': continue #This is a kluge for the density column, which has a bunch of nulls
-		if len(variableInCategory) > 1:
-			if variableInCategory[1:] in BigOlDictionary[song1][categoryOfVariable][n]: #gets away from capitalization
-				listToAverage.append(float(possibleValue))
-		if len(variableInCategory) == 1: #this the special case for looking at single letters 
-			if variableInCategory.lower() in BigOlDictionary[song1][categoryOfVariable][n]: 
-				listToAverage.append(float(possibleValue))
-
+		
+		if secondaryCategory == 100:
+			if len(variableInCategory) > 1:
+				if variableInCategory[1:] in BigOlDictionary[song1][categoryOfVariable][n]: #gets away from capitalization
+					listToAverage.append(float(possibleValue))
+			if len(variableInCategory) == 1: #this the special case for looking at single letters 
+				if variableInCategory.lower() in BigOlDictionary[song1][categoryOfVariable][n]: 
+					listToAverage.append(float(possibleValue))
+		else:
+			if len(variableInCategory) > 1:
+				if variableInCategory[1:] in BigOlDictionary[song1][categoryOfVariable][n] and secondaryVariableInCategory[1:] in BigOlDictionary[song1][secondaryCategory][n]: #gets away from capitalization
+					listToAverage.append(float(possibleValue))
+			if len(variableInCategory) == 1: #this the special case for looking at single letters 
+				if variableInCategory.lower() in BigOlDictionary[song1][categoryOfVariable][n] and secondaryVariableInCategory[1:] in BigOlDictionary[song1][secondaryCategory][n]: 
+					listToAverage.append(float(possibleValue))
+		
 
 
 print('\n', "the", averageOrCount, "of column", parameterYoureAveraging, "that has the variable", variableInCategory, "in column", categoryOfVariable, 'is...')
